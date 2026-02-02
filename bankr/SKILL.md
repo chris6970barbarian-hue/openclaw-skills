@@ -166,7 +166,7 @@ scripts/bankr-cancel.sh "$JOB_ID"
 
 ### Token Deployment
 
-- **EVM (Base/Unichain)**: Deploy ERC20 tokens via Clanker with customizable metadata and social links
+- **EVM (Base)**: Deploy ERC20 tokens via Clanker with customizable metadata and social links
 - **Solana**: Launch SPL tokens via Raydium LaunchLab with bonding curve and auto-migration to CPMM
 - Creator fee claiming on both chains
 - Fee Key NFTs for Solana (50% LP trading fees post-migration)
@@ -400,7 +400,6 @@ For comprehensive error troubleshooting, setup instructions, and debugging steps
 **EVM (Clanker):**
 
 - "Deploy a token called BankrFan with symbol BFAN on Base"
-- "Create a memecoin on Unichain"
 - "Claim fees for my token MTK"
 
 ### Arbitrary Transactions
