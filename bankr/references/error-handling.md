@@ -11,24 +11,25 @@ Resolve Bankr API errors and common issues.
 
 ### Resolution Steps
 
-**1. Get API Key**
-Visit https://bankr.bot/api to create a new API key
-
-**2. Create Configuration**
+**1. Install the Bankr CLI**
 ```bash
-mkdir -p ~/.clawdbot/skills/bankr
-cat > ~/.clawdbot/skills/bankr/config.json << 'EOF'
-{
-  "apiKey": "bk_your_actual_key_here",
-  "apiUrl": "https://api.bankr.bot"
-}
-EOF
+bun install -g @bankr/cli
+```
+
+**2. Authenticate**
+```bash
+bankr login
+```
+
+Or if you already have an API key from https://bankr.bot/api:
+```bash
+bankr config set apiKey bk_your_actual_key_here
 ```
 
 **3. Verify Setup**
-Test with a simple command:
 ```bash
-~/.clawdbot/skills/bankr/scripts/bankr.sh "What is my balance?"
+bankr whoami
+bankr prompt "What is my balance?"
 ```
 
 ### Common API Key Issues
@@ -162,38 +163,35 @@ curl -sf https://api.bankr.bot || echo "Connection failed"
 
 ## Configuration Issues
 
-### Config File Not Found
+### CLI Not Installed
 ```bash
-# Create config directory
-mkdir -p ~/.clawdbot/skills/bankr
+# Install the Bankr CLI
+bun install -g @bankr/cli
 
-# Create config file
-cat > ~/.clawdbot/skills/bankr/config.json << 'EOF'
-{
-  "apiKey": "bk_your_key_here",
-  "apiUrl": "https://api.bankr.bot"
-}
-EOF
+# Or with npm
+npm install -g @bankr/cli
+
+# Verify installation
+which bankr
 ```
 
-### Invalid JSON
+### Not Authenticated
 ```bash
-# Validate JSON
-jq . ~/.clawdbot/skills/bankr/config.json
+# Authenticate (opens browser for email/OTP flow)
+bankr login
 
-# If error, fix formatting
+# Or set API key directly
+bankr config set apiKey bk_your_key_here
+
+# Verify
+bankr whoami
 ```
 
-### Missing jq Command
+### Config File Location
+The CLI stores config at `~/.bankr/config.json`. You can view or update it:
 ```bash
-# macOS
-brew install jq
-
-# Linux (Debian/Ubuntu)
-sudo apt install jq
-
-# Linux (RHEL/CentOS)
-sudo yum install jq
+bankr config get
+bankr config set apiKey bk_new_key_here
 ```
 
 ## User-Friendly Error Messages
@@ -260,11 +258,11 @@ Before reporting an issue, check:
 
 ### Check Status
 ```bash
-# Test API connectivity
-~/.clawdbot/skills/bankr/scripts/bankr.sh "ping"
+# Verify authentication
+bankr whoami
 
-# Check your balance (validates auth)
-~/.clawdbot/skills/bankr/scripts/bankr.sh "What is my balance?"
+# Test with a simple query
+bankr prompt "What is my balance?"
 ```
 
 ### Gather Information

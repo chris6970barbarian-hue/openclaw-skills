@@ -10,15 +10,13 @@ Each top-level directory is a provider. Each subdirectory within a provider is a
 moltbot-skills/
 ├── bankr/
 │   ├── SKILL.md
-│   ├── references/
-│   │   ├── token-trading.md
-│   │   ├── leverage-trading.md
-│   │   ├── polymarket.md
-│   │   ├── automation.md
-│   │   ├── token-deployment.md
-│   │   └── ...
-│   └── scripts/
-│       └── bankr.sh
+│   └── references/
+│       ├── token-trading.md
+│       ├── leverage-trading.md
+│       ├── polymarket.md
+│       ├── automation.md
+│       ├── token-deployment.md
+│       └── ...
 │
 ├── base/                         # Base (placeholder)
 │   └── SKILL.md

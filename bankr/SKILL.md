@@ -7,61 +7,104 @@ metadata:
       {
         "emoji": "📺",
         "homepage": "https://bankr.bot",
-        "requires": { "bins": ["curl", "jq"] },
+        "requires": { "bins": ["bankr"] },
       },
   }
 ---
 
 # Bankr
 
-Execute crypto trading and DeFi operations using natural language through Bankr's AI agent API.
+Execute crypto trading and DeFi operations using natural language through the Bankr CLI.
+
+## Requirements
+
+Install the Bankr CLI:
+
+```bash
+bun install -g @bankr/cli
+```
+
+Or with npm:
+
+```bash
+npm install -g @bankr/cli
+```
 
 ## Quick Start
 
 ### First-Time Setup
 
-There are two ways to get started:
-
-#### Option A: User provides an existing API key
-
-If the user already has a Bankr API key, they can provide it directly:
-
 ```bash
-mkdir -p ~/.clawdbot/skills/bankr
-cat > ~/.clawdbot/skills/bankr/config.json << 'EOF'
-{
-  "apiKey": "bk_YOUR_KEY_HERE",
-  "apiUrl": "https://api.bankr.bot"
-}
-EOF
+# Authenticate with Bankr (creates account if needed)
+bankr login
+
+# Verify your identity
+bankr whoami
 ```
 
-API keys can be created and managed at [bankr.bot/api](https://bankr.bot/api). The key must have **Agent API** access enabled.
+The `bankr login` command gives you two options:
 
-#### Option B: Create a new account (guided by Clawd)
+#### Option A: Open the Bankr dashboard (recommended for new users)
 
-Clawd can walk the user through the full signup flow:
+The CLI opens [bankr.bot/api](https://bankr.bot/api) in your browser where you:
 
-1. **Sign up / Sign in** — User provides their email address. Bankr sends a one-time passcode (OTP) to that email. Creating a new account automatically provisions **EVM wallets** (Base, Ethereum, Polygon, Unichain) and a **Solana wallet** — no manual wallet setup needed.
-2. **Enter OTP** — User checks their email and provides the OTP code.
-3. **Generate API key** — Once authenticated, navigate to [bankr.bot/api](https://bankr.bot/api) to create an API key with **Agent API** access enabled.
-4. **Configure** — Save the key (starts with `bk_`) to config:
+1. **Sign up / Sign in** — Enter your email and the one-time passcode (OTP) sent to it
+2. **Generate an API key** — Create a key with **Agent API** access enabled
+3. **Paste the key** — Copy the `bk_...` key back into the CLI prompt
 
-```bash
-mkdir -p ~/.clawdbot/skills/bankr
-cat > ~/.clawdbot/skills/bankr/config.json << 'EOF'
-{
-  "apiKey": "bk_YOUR_KEY_HERE",
-  "apiUrl": "https://api.bankr.bot"
-}
-EOF
-```
+Creating a new account automatically provisions **EVM wallets** (Base, Ethereum, Polygon, Unichain) and a **Solana wallet** — no manual wallet setup needed.
 
-#### Verify Setup
+#### Option B: Paste an existing API key
+
+If you already have an API key, select "Paste an existing Bankr API key" and enter it directly. You can also set it without the interactive flow:
 
 ```bash
-scripts/bankr.sh "What is my balance?"
+bankr config set apiKey bk_YOUR_KEY_HERE
 ```
+
+### Verify Setup
+
+```bash
+bankr whoami
+bankr prompt "What is my balance?"
+```
+
+## CLI Command Reference
+
+### Core Commands
+
+| Command | Description |
+|---------|-------------|
+| `bankr login` | Authenticate with the Bankr API |
+| `bankr logout` | Clear stored credentials |
+| `bankr whoami` | Show current authentication info |
+| `bankr prompt <text>` | Send a prompt to the Bankr AI agent |
+| `bankr status <jobId>` | Check the status of a running job |
+| `bankr cancel <jobId>` | Cancel a running job |
+| `bankr skills` | Show all Bankr AI agent skills with examples |
+
+### Configuration Commands
+
+| Command | Description |
+|---------|-------------|
+| `bankr config get [key]` | Get config value(s) |
+| `bankr config set <key> <value>` | Set a config value |
+| `bankr --config <path> <command>` | Use a custom config file path |
+
+Valid config keys: `apiKey`, `apiUrl`, `llmUrl`
+
+Default config location: `~/.bankr/config.json`. Override with `--config` or `BANKR_CONFIG` env var.
+
+### LLM Gateway Commands
+
+| Command | Description |
+|---------|-------------|
+| `bankr llm models` | List available LLM models |
+| `bankr llm setup openclaw [--install]` | Generate or install OpenClaw config |
+| `bankr llm setup opencode [--install]` | Generate or install OpenCode config |
+| `bankr llm setup claude` | Show Claude Code environment setup |
+| `bankr llm setup cursor` | Show Cursor IDE setup instructions |
+| `bankr llm claude [args...]` | Launch Claude Code via the Bankr LLM Gateway |
 
 ## Core Usage
 
@@ -70,11 +113,28 @@ scripts/bankr.sh "What is my balance?"
 For straightforward requests that complete quickly:
 
 ```bash
-scripts/bankr.sh "What is my ETH balance?"
-scripts/bankr.sh "What's the price of Bitcoin?"
+bankr prompt "What is my ETH balance?"
+bankr prompt "What's the price of Bitcoin?"
 ```
 
-The main script handles the full submit-poll-complete workflow automatically.
+The CLI handles the full submit-poll-complete workflow automatically. You can also use the shorthand — any unrecognized command is treated as a prompt:
+
+```bash
+bankr What is the price of ETH?
+```
+
+### Interactive Prompt
+
+For prompts containing `$` or special characters that the shell would expand:
+
+```bash
+# Interactive mode — no shell expansion issues
+bankr prompt
+# Then type: Buy $50 of ETH on Base
+
+# Or pipe input
+echo 'Buy $50 of ETH on Base' | bankr prompt
+```
 
 ### Manual Job Control
 
@@ -82,13 +142,110 @@ For advanced use or long-running operations:
 
 ```bash
 # Submit and get job ID
-JOB_ID=$(scripts/bankr-submit.sh "Buy $100 of ETH" | jq -r '.jobId')
+bankr prompt "Buy $100 of ETH"
+# → Job submitted: job_abc123
 
-# Poll for status
-scripts/bankr-status.sh "$JOB_ID"
+# Check status of a specific job
+bankr status job_abc123
 
 # Cancel if needed
-scripts/bankr-cancel.sh "$JOB_ID"
+bankr cancel job_abc123
+```
+
+## LLM Gateway
+
+The [Bankr LLM Gateway](https://docs.bankr.bot/llm-gateway/overview) is a unified API for Claude, Gemini, GPT, and other models. It provides:
+
+- **Multi-provider access** — Anthropic, Google, OpenAI, Moonshot AI, and Alibaba through one API
+- **Cost tracking** — Full visibility into token usage and costs per request
+- **High availability** — Automatic failover between Vertex AI and OpenRouter
+- **SDK compatible** — Works with OpenAI and Anthropic SDKs, no code changes needed
+
+**Base URL:** `https://llm.bankr.bot/v1`
+
+### Available Models
+
+| Model | Provider | Best For |
+|-------|----------|----------|
+| `claude-opus-4.6` | Anthropic | Most capable, advanced reasoning |
+| `claude-sonnet-4.5` | Anthropic | Balanced speed and quality |
+| `claude-haiku-4.5` | Anthropic | Fast, cost-effective |
+| `gemini-3-pro` | Google | Long context (2M tokens) |
+| `gemini-3-flash` | Google | High throughput |
+| `gemini-2.5-pro` | Google | Long context, multimodal |
+| `gemini-2.5-flash` | Google | Speed, high throughput |
+| `gpt-5.2` | OpenAI | Advanced reasoning |
+| `gpt-5.2-codex` | OpenAI | Code generation |
+| `gpt-5-mini` | OpenAI | Fast, economical |
+| `gpt-5-nano` | OpenAI | Ultra-fast, lowest cost |
+| `kimi-k2.5` | Moonshot AI | Long-context reasoning |
+| `qwen3-coder` | Alibaba | Code generation, debugging |
+
+```bash
+# Fetch live model list from the gateway
+bankr llm models
+```
+
+### Credits
+
+```bash
+# Check your LLM gateway credit balance
+bankr llm credits
+```
+
+### OpenClaw Setup
+
+The fastest way to connect OpenClaw to the gateway:
+
+```bash
+# Auto-install Bankr provider into ~/.openclaw/openclaw.json
+bankr llm setup openclaw --install
+```
+
+This writes the full provider config (base URL, API key, all models) into your OpenClaw config. To preview without writing:
+
+```bash
+bankr llm setup openclaw
+```
+
+To use a Bankr model as your default in OpenClaw, add to `openclaw.json`:
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "bankr/claude-sonnet-4.5"
+      }
+    }
+  }
+}
+```
+
+The gateway also supports the Anthropic Messages API format. Change the `api` field in the provider config from `"openai-completions"` to `"anthropic-messages"` for Claude-native features like extended thinking.
+
+### Claude Code
+
+```bash
+# Print env vars to add to your shell profile
+bankr llm setup claude
+
+# Or launch Claude Code directly through the gateway
+bankr llm claude
+```
+
+### OpenCode
+
+```bash
+# Auto-install Bankr provider into ~/.config/opencode/opencode.json
+bankr llm setup opencode --install
+```
+
+### Cursor
+
+```bash
+# Get step-by-step instructions with your API key
+bankr llm setup cursor
 ```
 
 ## Capabilities Overview
@@ -212,63 +369,65 @@ scripts/bankr-cancel.sh "$JOB_ID"
 
 ```bash
 # Check balance
-scripts/bankr.sh "What is my ETH balance on Base?"
+bankr prompt "What is my ETH balance on Base?"
 
 # Check price
-scripts/bankr.sh "What's the current price of PEPE?"
+bankr prompt "What's the current price of PEPE?"
 
 # Then trade
-scripts/bankr.sh "Buy $20 of PEPE on Base"
+bankr prompt "Buy $20 of PEPE on Base"
 ```
 
 ### Portfolio Review
 
 ```bash
 # Full portfolio
-scripts/bankr.sh "Show my complete portfolio"
+bankr prompt "Show my complete portfolio"
 
 # Chain-specific
-scripts/bankr.sh "What tokens do I have on Base?"
+bankr prompt "What tokens do I have on Base?"
 
 # Token-specific
-scripts/bankr.sh "Show my ETH across all chains"
+bankr prompt "Show my ETH across all chains"
 ```
 
 ### Set Up Automation
 
 ```bash
 # DCA strategy
-scripts/bankr.sh "DCA $100 into ETH every week"
+bankr prompt "DCA $100 into ETH every week"
 
 # Stop loss protection
-scripts/bankr.sh "Set stop loss for my ETH at $2,500"
+bankr prompt "Set stop loss for my ETH at $2,500"
 
 # Limit order
-scripts/bankr.sh "Buy ETH if price drops to $3,000"
+bankr prompt "Buy ETH if price drops to $3,000"
 ```
 
 ### Market Research
 
 ```bash
 # Price and analysis
-scripts/bankr.sh "Do technical analysis on ETH"
+bankr prompt "Do technical analysis on ETH"
 
 # Trending tokens
-scripts/bankr.sh "What tokens are trending on Base?"
+bankr prompt "What tokens are trending on Base?"
 
 # Compare tokens
-scripts/bankr.sh "Compare ETH vs SOL"
+bankr prompt "Compare ETH vs SOL"
 ```
 
 ## API Workflow
 
 Bankr uses an asynchronous job-based API:
 
-1. **Submit** - Send prompt, get job ID
-2. **Poll** - Check status every 2 seconds
-3. **Complete** - Process results when done
+1. **Submit** — Send prompt, get job ID
+2. **Poll** — Check status every 2 seconds
+3. **Complete** — Process results when done
 
-The `bankr.sh` wrapper handles this automatically. For details on the API structure, job states, polling strategy, and error handling, see:
+The `bankr prompt` command handles this automatically. For manual job control, use `bankr status <jobId>` and `bankr cancel <jobId>`.
+
+For details on the API structure, job states, polling strategy, and error handling, see:
 
 **Reference**: [references/api-workflow.md](references/api-workflow.md)
 
@@ -276,7 +435,7 @@ The `bankr.sh` wrapper handles this automatically. For details on the API struct
 
 Common issues and fixes:
 
-- **Authentication errors** → Check API key setup
+- **Authentication errors** → Run `bankr login` or check `bankr whoami`
 - **Insufficient balance** → Add funds or reduce amount
 - **Token not found** → Verify symbol and chain
 - **Transaction reverted** → Check parameters and balances
@@ -410,21 +569,33 @@ For comprehensive error troubleshooting, setup instructions, and debugging steps
 
 ## Resources
 
-- **Agent API Reference**: https://www.notion.so/Agent-API-2e18e0f9661f80cb83ccfc046f8872e3
+- **Documentation**: https://docs.bankr.bot
+- **LLM Gateway Docs**: https://docs.bankr.bot/llm-gateway/overview
 - **API Key Management**: https://bankr.bot/api
 - **Terminal**: https://bankr.bot/terminal
+- **CLI Package**: https://www.npmjs.com/package/@bankr/cli
 - **Twitter**: @bankr_bot
 
 ## Troubleshooting
 
-### Scripts Not Working
+### CLI Not Found
 
 ```bash
-# Ensure scripts are executable
-chmod +x ~/.clawdbot/skills/bankr/scripts/*.sh
+# Verify installation
+which bankr
 
-# Test connectivity
-curl -I https://api.bankr.bot
+# Reinstall if needed
+bun install -g @bankr/cli
+```
+
+### Authentication Issues
+
+```bash
+# Check current auth
+bankr whoami
+
+# Re-authenticate
+bankr login
 ```
 
 ### API Errors
@@ -433,15 +604,15 @@ See [references/error-handling.md](references/error-handling.md) for comprehensi
 
 ### Getting Help
 
-1. Check error message in response JSON
-2. Consult relevant reference document
-3. Verify configuration and connectivity
-4. Test with simple queries first
+1. Check error message in CLI output
+2. Run `bankr whoami` to verify auth
+3. Consult relevant reference document
+4. Test with simple queries first (`bankr prompt "What is my balance?"`)
 
 ---
 
-**💡 Pro Tip**: The most common issue is not specifying the chain for tokens. When in doubt, always include "on Base" or "on Ethereum" in your prompt.
+**Pro Tip**: The most common issue is not specifying the chain for tokens. When in doubt, always include "on Base" or "on Ethereum" in your prompt.
 
-**⚠️ Security**: Keep your API key private. Never commit config.json to version control. Only trade amounts you can afford to lose.
+**Security**: Keep your API key private. Never commit your config file to version control. Only trade amounts you can afford to lose.
 
-**🚀 Quick Win**: Start by checking your portfolio to see what's possible, then try a small $5-10 trade on Base to get familiar with the flow.
+**Quick Win**: Start by checking your portfolio (`bankr prompt "Show my portfolio"`) to see what's possible, then try a small $5-10 trade on Base to get familiar with the flow.

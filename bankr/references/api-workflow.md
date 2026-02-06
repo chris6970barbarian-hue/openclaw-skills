@@ -4,6 +4,29 @@ Understanding the asynchronous job pattern for Bankr API operations.
 
 **Source**: [Agent API Reference](https://www.notion.so/Agent-API-2e18e0f9661f80cb83ccfc046f8872e3)
 
+## Using the Bankr CLI (Recommended)
+
+The Bankr CLI handles the full submit-poll-complete workflow automatically:
+
+```bash
+# Install
+bun install -g @bankr/cli
+
+# Authenticate
+bankr login
+
+# Submit a prompt (handles polling and completion automatically)
+bankr prompt "What is my ETH balance?"
+
+# Check status of a specific job
+bankr status <jobId>
+
+# Cancel a running job
+bankr cancel <jobId>
+```
+
+The CLI manages authentication, job polling, status updates, and error handling out of the box. The raw API details below are provided for reference.
+
 ## Core Pattern: Submit-Poll-Complete
 
 All Bankr operations follow this pattern:
@@ -18,6 +41,8 @@ All Bankr operations follow this pattern:
 
 ### POST /agent/prompt
 Submit a natural language prompt to start a job.
+
+**CLI equivalent:** `bankr prompt "What is my ETH balance?"`
 
 **Request:**
 ```bash
@@ -50,6 +75,8 @@ curl -X POST "https://api.bankr.bot/agent/prompt" \
 
 ### GET /agent/job/{jobId}
 Check job status and results.
+
+**CLI equivalent:** `bankr status job_abc123`
 
 **Request:**
 ```bash
@@ -86,6 +113,8 @@ curl -X GET "https://api.bankr.bot/agent/job/job_abc123" \
 
 ### POST /agent/job/{jobId}/cancel
 Cancel a pending or processing job. Cancel requests are idempotent — cancelling an already-cancelled job returns success.
+
+**CLI equivalent:** `bankr cancel job_abc123`
 
 **Request:**
 ```bash
