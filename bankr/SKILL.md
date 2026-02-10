@@ -14,11 +14,26 @@ metadata:
 
 # Bankr
 
-Execute crypto trading and DeFi operations using natural language through the Bankr CLI.
+Execute crypto trading and DeFi operations using natural language. Two integration options:
 
-## Requirements
+1. **Bankr CLI** (recommended) — Install `@bankr/cli` for a batteries-included terminal experience
+2. **REST API** — Call `https://api.bankr.bot` directly from any language or tool
 
-Install the Bankr CLI:
+Both use the same API key and the same async job workflow under the hood.
+
+## Getting an API Key
+
+Before using either option, you need a Bankr API key:
+
+1. Visit [bankr.bot/api](https://bankr.bot/api)
+2. **Sign up / Sign in** — Enter your email and the one-time passcode (OTP) sent to it
+3. **Generate an API key** — Create a key with **Agent API** access enabled (the key starts with `bk_...`)
+
+Creating a new account automatically provisions **EVM wallets** (Base, Ethereum, Polygon, Unichain) and a **Solana wallet** — no manual wallet setup needed.
+
+## Option 1: Bankr CLI (Recommended)
+
+### Install
 
 ```bash
 bun install -g @bankr/cli
@@ -30,37 +45,37 @@ Or with npm:
 npm install -g @bankr/cli
 ```
 
-## Quick Start
-
 ### First-Time Setup
 
 ```bash
-# Authenticate with Bankr (creates account if needed)
+# Authenticate with Bankr (interactive — opens browser or paste key)
 bankr login
 
 # Verify your identity
 bankr whoami
 ```
 
-The `bankr login` command gives you two options:
+The `bankr login` command gives you two choices:
 
-#### Option A: Open the Bankr dashboard (recommended for new users)
+**A) Open the Bankr dashboard** — The CLI opens [bankr.bot/api](https://bankr.bot/api) where you generate a key and paste it back.
 
-The CLI opens [bankr.bot/api](https://bankr.bot/api) in your browser where you:
+**B) Paste an existing API key** — Select "Paste an existing Bankr API key" and enter it directly.
 
-1. **Sign up / Sign in** — Enter your email and the one-time passcode (OTP) sent to it
-2. **Generate an API key** — Create a key with **Agent API** access enabled
-3. **Paste the key** — Copy the `bk_...` key back into the CLI prompt
+#### Separate LLM Gateway Key (Optional)
 
-Creating a new account automatically provisions **EVM wallets** (Base, Ethereum, Polygon, Unichain) and a **Solana wallet** — no manual wallet setup needed.
-
-#### Option B: Paste an existing API key
-
-If you already have an API key, select "Paste an existing Bankr API key" and enter it directly. You can also set it without the interactive flow:
+If your LLM gateway key differs from your Bankr API key, you can set them separately. During interactive login the CLI will ask if you want a different LLM key. You can also pass it directly:
 
 ```bash
-bankr config set apiKey bk_YOUR_KEY_HERE
+bankr login --api-key bk_YOUR_KEY --llm-key YOUR_LLM_KEY
 ```
+
+Or set it via config:
+
+```bash
+bankr config set llmKey YOUR_LLM_KEY
+```
+
+When not set, the API key is used for both the agent API and the LLM gateway.
 
 #### Non-Interactive Login (for AI agents)
 
@@ -77,12 +92,91 @@ If you cannot interact with terminal prompts, use these flags:
 bankr login --api-key bk_YOUR_KEY_HERE
 ```
 
-### Verify Setup
+#### Verify Setup
 
 ```bash
 bankr whoami
 bankr prompt "What is my balance?"
 ```
+
+## Option 2: REST API (Direct)
+
+No CLI installation required — call the API directly with `curl`, `fetch`, or any HTTP client.
+
+### Authentication
+
+All requests require an `X-API-Key` header:
+
+```bash
+curl -X POST "https://api.bankr.bot/agent/prompt" \
+  -H "X-API-Key: bk_YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is my ETH balance?"}'
+```
+
+### Quick Example: Submit → Poll → Complete
+
+```bash
+# 1. Submit a prompt — returns a job ID
+JOB=$(curl -s -X POST "https://api.bankr.bot/agent/prompt" \
+  -H "X-API-Key: $BANKR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is my ETH balance?"}')
+JOB_ID=$(echo "$JOB" | jq -r '.jobId')
+
+# 2. Poll until terminal status
+while true; do
+  RESULT=$(curl -s "https://api.bankr.bot/agent/job/$JOB_ID" \
+    -H "X-API-Key: $BANKR_API_KEY")
+  STATUS=$(echo "$RESULT" | jq -r '.status')
+  [ "$STATUS" = "completed" ] || [ "$STATUS" = "failed" ] || [ "$STATUS" = "cancelled" ] && break
+  sleep 2
+done
+
+# 3. Read the response
+echo "$RESULT" | jq -r '.response'
+```
+
+### Conversation Threads
+
+Every prompt response (and completed job) includes a `threadId`. Save it and pass it back to continue the conversation — the agent remembers context from earlier messages in the same thread.
+
+```bash
+# Start a conversation — save the threadId from the response
+curl -X POST "https://api.bankr.bot/agent/prompt" \
+  -H "X-API-Key: $BANKR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is the price of ETH?"}'
+# → {"jobId": "job_abc", "threadId": "thr_XYZ", ...}
+
+# Continue it — pass threadId to maintain context
+curl -X POST "https://api.bankr.bot/agent/prompt" \
+  -H "X-API-Key: $BANKR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "And what about SOL?", "threadId": "thr_XYZ"}'
+
+# Continue further — same threadId
+curl -X POST "https://api.bankr.bot/agent/prompt" \
+  -H "X-API-Key: $BANKR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Compare them", "threadId": "thr_XYZ"}'
+```
+
+Omit `threadId` to start a new conversation. The CLI equivalent is `bankr prompt --continue` (reuses last thread) or `bankr prompt --thread <id>`.
+
+### API Endpoints Summary
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/agent/prompt` | POST | Submit a prompt (async, returns job ID) |
+| `/agent/job/{jobId}` | GET | Check job status and results |
+| `/agent/job/{jobId}/cancel` | POST | Cancel a running job |
+| `/agent/sign` | POST | Sign messages/transactions (sync) |
+| `/agent/submit` | POST | Submit raw transactions (sync) |
+
+For full API details (request/response schemas, job states, rich data, polling strategy), see:
+
+**Reference**: [references/api-workflow.md](references/api-workflow.md) | [references/sign-submit-api.md](references/sign-submit-api.md)
 
 ## CLI Command Reference
 
@@ -93,6 +187,7 @@ bankr prompt "What is my balance?"
 | `bankr login` | Authenticate with the Bankr API (interactive) |
 | `bankr login --url` | Print dashboard URL for API key generation |
 | `bankr login --api-key <key>` | Login with an API key directly (non-interactive) |
+| `bankr login --api-key <key> --llm-key <key>` | Login with separate LLM gateway key |
 | `bankr logout` | Clear stored credentials |
 | `bankr whoami` | Show current authentication info |
 | `bankr prompt <text>` | Send a prompt to the Bankr AI agent |
@@ -110,9 +205,20 @@ bankr prompt "What is my balance?"
 | `bankr config set <key> <value>` | Set a config value |
 | `bankr --config <path> <command>` | Use a custom config file path |
 
-Valid config keys: `apiKey`, `apiUrl`, `llmUrl`
+Valid config keys: `apiKey`, `apiUrl`, `llmKey`, `llmUrl`
 
 Default config location: `~/.bankr/config.json`. Override with `--config` or `BANKR_CONFIG` env var.
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `BANKR_API_KEY` | API key (overrides stored key) |
+| `BANKR_API_URL` | API URL (default: `https://api.bankr.bot`) |
+| `BANKR_LLM_KEY` | LLM gateway key (falls back to `BANKR_API_KEY` if not set) |
+| `BANKR_LLM_URL` | LLM gateway URL (default: `https://llm.bankr.bot`) |
+
+Environment variables override config file values. Config file values override defaults.
 
 ### LLM Gateway Commands
 
@@ -192,61 +298,33 @@ bankr cancel job_abc123
 
 ## LLM Gateway
 
-The [Bankr LLM Gateway](https://docs.bankr.bot/llm-gateway/overview) is a unified API for Claude, Gemini, GPT, and other models. It provides:
-
-- **Multi-provider access** — Anthropic, Google, OpenAI, Moonshot AI, and Alibaba through one API
-- **Cost tracking** — Full visibility into token usage and costs per request
-- **High availability** — Automatic failover between Vertex AI and OpenRouter
-- **SDK compatible** — Works with OpenAI and Anthropic SDKs, no code changes needed
+The [Bankr LLM Gateway](https://docs.bankr.bot/llm-gateway/overview) is a unified API for Claude, Gemini, GPT, and other models — multi-provider access, cost tracking, automatic failover, and SDK compatibility through a single endpoint.
 
 **Base URL:** `https://llm.bankr.bot`
 
-### Available Models
+Uses your `llmKey` if configured, otherwise falls back to your API key.
 
-| Model | Provider | Best For |
-|-------|----------|----------|
-| `claude-opus-4.6` | Anthropic | Most capable, advanced reasoning |
-| `claude-sonnet-4.5` | Anthropic | Balanced speed and quality |
-| `claude-haiku-4.5` | Anthropic | Fast, cost-effective |
-| `gemini-3-pro` | Google | Long context (2M tokens) |
-| `gemini-3-flash` | Google | High throughput |
-| `gemini-2.5-pro` | Google | Long context, multimodal |
-| `gemini-2.5-flash` | Google | Speed, high throughput |
-| `gpt-5.2` | OpenAI | Advanced reasoning |
-| `gpt-5.2-codex` | OpenAI | Code generation |
-| `gpt-5-mini` | OpenAI | Fast, economical |
-| `gpt-5-nano` | OpenAI | Ultra-fast, lowest cost |
-| `kimi-k2.5` | Moonshot AI | Long-context reasoning |
-| `qwen3-coder` | Alibaba | Code generation, debugging |
+### Quick Commands
 
 ```bash
-# Fetch live model list from the gateway
-bankr llm models
+bankr llm models                           # List available models
+bankr llm credits                          # Check credit balance
+bankr llm setup openclaw --install         # Install Bankr provider into OpenClaw
+bankr llm setup opencode --install         # Install Bankr provider into OpenCode
+bankr llm setup claude                     # Print Claude Code env vars
+bankr llm setup cursor                     # Cursor setup instructions
+bankr llm claude                           # Launch Claude Code through gateway
+bankr llm claude --model claude-opus-4.6   # Launch with specific model
 ```
 
-### Credits
+### OpenClaw Provider Setup
 
 ```bash
-# Check your LLM gateway credit balance
-bankr llm credits
-```
-
-### OpenClaw Setup
-
-The fastest way to connect OpenClaw to the gateway:
-
-```bash
-# Auto-install Bankr provider into ~/.openclaw/openclaw.json
+# Auto-install — writes provider config to ~/.openclaw/openclaw.json
 bankr llm setup openclaw --install
 ```
 
-This writes the full provider config (base URL, API key, all models) into your OpenClaw config. To preview without writing:
-
-```bash
-bankr llm setup openclaw
-```
-
-To use a Bankr model as your default in OpenClaw, add to `openclaw.json`:
+To use a Bankr model as your default, add to `openclaw.json`:
 
 ```json
 {
@@ -260,31 +338,21 @@ To use a Bankr model as your default in OpenClaw, add to `openclaw.json`:
 }
 ```
 
-The gateway supports both OpenAI and Anthropic API formats. When installed via `bankr llm setup openclaw`, Claude models are automatically configured with `api: "anthropic-messages"` per-model overrides, while all other models use the default `api: "openai-completions"`.
+### Direct SDK Usage
 
-### Claude Code
-
-```bash
-# Print env vars to add to your shell profile
-bankr llm setup claude
-
-# Or launch Claude Code directly through the gateway
-bankr llm claude
-```
-
-### OpenCode
+The gateway works with standard OpenAI and Anthropic SDKs — just override the base URL:
 
 ```bash
-# Auto-install Bankr provider into ~/.config/opencode/opencode.json
-bankr llm setup opencode --install
+# OpenAI-compatible
+curl -X POST "https://llm.bankr.bot/v1/chat/completions" \
+  -H "Authorization: Bearer $BANKR_LLM_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "claude-sonnet-4.5", "messages": [{"role": "user", "content": "Hello"}]}'
 ```
 
-### Cursor
+For full model list, provider config JSON shape, SDK examples (Python, TypeScript), all setup commands, and troubleshooting, see:
 
-```bash
-# Get step-by-step instructions with your API key
-bankr llm setup cursor
-```
+**Reference**: [references/llm-gateway.md](references/llm-gateway.md)
 
 ## Capabilities Overview
 
@@ -464,7 +532,7 @@ Bankr uses an asynchronous job-based API:
 3. **Complete** — Process results when done
 4. **Continue** — Reuse `threadId` for multi-turn conversations
 
-The `bankr prompt` command handles this automatically. For manual job control, use `bankr status <jobId>` and `bankr cancel <jobId>`.
+The `bankr prompt` command handles this automatically. When using the REST API directly, implement the poll loop yourself (see Option 2 above or the reference below). For manual job control via CLI, use `bankr status <jobId>` and `bankr cancel <jobId>`.
 
 For details on the API structure, job states, polling strategy, and error handling, see:
 
@@ -488,7 +556,7 @@ These endpoints return immediately (no polling required) and are ideal for:
 
 Common issues and fixes:
 
-- **Authentication errors** → Run `bankr login` or check `bankr whoami`
+- **Authentication errors** → Run `bankr login` or check `bankr whoami` (CLI), or verify your `X-API-Key` header (REST API)
 - **Insufficient balance** → Add funds or reduce amount
 - **Token not found** → Verify symbol and chain
 - **Transaction reverted** → Check parameters and balances
@@ -684,12 +752,22 @@ bun install -g @bankr/cli
 
 ### Authentication Issues
 
+**CLI:**
 ```bash
 # Check current auth
 bankr whoami
 
 # Re-authenticate
 bankr login
+
+# Check LLM key specifically
+bankr config get llmKey
+```
+
+**REST API:**
+```bash
+# Test your API key
+curl -s "https://api.bankr.bot/_health" -H "X-API-Key: $BANKR_API_KEY"
 ```
 
 ### API Errors
@@ -698,10 +776,10 @@ See [references/error-handling.md](references/error-handling.md) for comprehensi
 
 ### Getting Help
 
-1. Check error message in CLI output
-2. Run `bankr whoami` to verify auth
+1. Check error message in CLI output or API response
+2. Run `bankr whoami` to verify auth (CLI) or test with a curl to `/_health` (REST API)
 3. Consult relevant reference document
-4. Test with simple queries first (`bankr prompt "What is my balance?"`)
+4. Test with simple queries first (`bankr prompt "What is my balance?"` or `POST /agent/prompt`)
 
 ---
 

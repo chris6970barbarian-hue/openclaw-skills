@@ -183,6 +183,9 @@ bankr login
 # Or set API key directly
 bankr config set apiKey bk_your_key_here
 
+# Set separate LLM key (optional, falls back to API key)
+bankr config set llmKey your_llm_key_here
+
 # Verify
 bankr whoami
 ```
@@ -192,6 +195,18 @@ The CLI stores config at `~/.bankr/config.json`. You can view or update it:
 ```bash
 bankr config get
 bankr config set apiKey bk_new_key_here
+bankr config set llmKey your_llm_key_here
+```
+
+### REST API Authentication
+If using the API directly without the CLI:
+```bash
+# Test your API key
+curl -s "https://api.bankr.bot/_health" -H "X-API-Key: $BANKR_API_KEY"
+
+# Use env vars
+export BANKR_API_KEY=bk_your_key_here
+export BANKR_LLM_KEY=your_llm_key_here  # optional, for LLM gateway
 ```
 
 ## User-Friendly Error Messages
