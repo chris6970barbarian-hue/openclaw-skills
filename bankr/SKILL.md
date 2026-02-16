@@ -77,7 +77,7 @@ bankr login email <user-email>
 
 **Step 3 — Before completing login, ask the user about their preferences:**
 
-1. **Accept Terms of Service?** — Required for new users. Link: https://bankr.bot/terms
+1. **Accept Terms of Service** — Present the [Terms of Service](https://bankr.bot/terms) link and confirm the user agrees. Required for new users — do not pass `--accept-terms` unless the user has explicitly confirmed.
 2. **Read-only or read-write API key?**
    - **Read-only** (default) — portfolio, balances, prices, research only
    - **Read-write** (`--read-write`) — enables swaps, transfers, orders, token launches, leverage, Polymarket bets
