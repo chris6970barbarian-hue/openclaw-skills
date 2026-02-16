@@ -27,15 +27,17 @@ Before using either option, you need a Bankr API key. Two ways to get one:
 
 **Option A: Headless email login (recommended for agents)**
 
+Two-step flow — send OTP, then verify and complete setup. See "First-Time Setup" below for the full guided flow with user preference prompts.
+
 ```bash
 # Step 1 — send OTP to email
 bankr login email user@example.com
 
-# Step 2 — verify OTP and generate API key in one command
+# Step 2 — verify OTP and generate API key (options based on user preferences)
 bankr login email user@example.com --code 123456 --accept-terms --key-name "My Agent" --read-write
 ```
 
-This creates a wallet, accepts terms, and generates an API key — no browser needed.
+This creates a wallet, accepts terms, and generates an API key — no browser needed. Before running step 2, ask the user whether they need read-only or read-write access, LLM gateway, and their preferred key name.
 
 **Option B: Bankr Terminal**
 
@@ -63,13 +65,36 @@ npm install -g @bankr/cli
 
 #### Headless email login (recommended for agents)
 
-```bash
-# Step 1 — send verification code
-bankr login email user@example.com
+When the user asks to log in with an email, walk them through this flow:
 
-# Step 2 — verify code and complete setup
-bankr login email user@example.com --code 123456 --accept-terms --key-name "My Agent" --read-write
+**Step 1 — Send verification code**
+
+```bash
+bankr login email <user-email>
 ```
+
+**Step 2 — Ask the user for the OTP code** they received via email.
+
+**Step 3 — Before completing login, ask the user about their preferences:**
+
+1. **Accept Terms of Service?** — Required for new users. Link: https://bankr.bot/terms
+2. **Read-only or read-write API key?**
+   - **Read-only** (default) — portfolio, balances, prices, research only
+   - **Read-write** (`--read-write`) — enables swaps, transfers, orders, token launches, leverage, Polymarket bets
+3. **Enable LLM gateway access?** (`--llm`) — multi-model API at `llm.bankr.bot` (currently limited to beta testers). Skip if user doesn't need it.
+4. **Key name?** (`--key-name`) — a display name for the API key (e.g. "My Agent", "Trading Bot")
+
+**Step 4 — Construct and run the step 2 command** with the user's choices:
+
+```bash
+# Example with all options
+bankr login email <user-email> --code <otp> --accept-terms --key-name "My Agent" --read-write --llm
+
+# Example read-only, no LLM
+bankr login email <user-email> --code <otp> --accept-terms --key-name "Research Bot"
+```
+
+#### Login options reference
 
 | Option | Description |
 |--------|-------------|
@@ -79,7 +104,7 @@ bankr login email user@example.com --code 123456 --accept-terms --key-name "My A
 | `--read-write` | Enable write operations: swaps, transfers, orders, token launches, leverage, Polymarket bets. **Without this flag, the key is read-only** (portfolio, balances, prices, research only) |
 | `--llm` | Enable [LLM gateway](https://docs.bankr.bot/llm-gateway/overview) access (multi-model API at `llm.bankr.bot`). Currently limited to beta testers |
 
-Any option not provided will be prompted interactively, so you can mix headless and interactive as needed.
+Any option not provided on the command line will be prompted interactively by the CLI, so you can mix headless and interactive as needed.
 
 #### Login with existing API key
 
